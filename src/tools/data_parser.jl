@@ -7,9 +7,9 @@ function parse_data(datafile::String; delim=";")
   rename!(data, [:x, :y, :z, :vx, :vy, :vz, :m])
   
   len = size(data, 1)
-  bodys = Vector{typeof([(0.0, 0.0, 0.0), (0.0, 0.0, 0.0), 0.0, 0.0])}(undef, len)
+  bodys = Vector{typeof([(0.0, 0.0, 0.0), (0.0, 0.0, 0.0), 0.0])}(undef, len)
   for i in 1:len
-    bodys[i] = [(data.x[i], data.y[i], data.z[i]), (data.vx[i], data.vy[i], data.vz[i]), data.m[i], 0]
+    bodys[i] = [(data.x[i], data.y[i], data.z[i]), (data.vx[i], data.vy[i], data.vz[i]), data.m[i]]
   end
 
   return bodys
