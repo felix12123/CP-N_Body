@@ -1,3 +1,5 @@
+using LinearAlgebra
+
 
 # Normate Mass of system
 function norm_mass!(bodys::Vector{Vector{Any}})
@@ -38,12 +40,15 @@ end
 
 
 # calculates the best time step size
-function time_step(bodys, dt0)
-  abs_pos = [sqrt(sum(body[i][1] .^2)) for body in bodys]
-  abs_vel = [sqrt(sum(body[i][2] .^2)) for body in bodys]
-  step = dt0 * minimum(abs_pos ./ abs_vel)
-  if step == 0 @error "Time step evaluated to 0" end
-  return step
+# FIXME, Definition falsch verstanden, to be implemented
+function time_step(acc1, acc2, dt0)
+  return dt0
+  abs_vel1 = [sqrt(sum(body[i][2] .^2)) for body in bodys1]
+  abs_vel2 = [sqrt(sum(body[i][2] .^2)) for body in bodys2]
+  # abs_pos = [sqrt(sum(body[i][1] .^2)) for body in bodys]
+  # step = dt0 * minimum(abs_pos ./ abs_vel)
+  # if step == 0 @error "Time step evaluated to 0" end
+  # return step
 end
 
 
@@ -66,4 +71,16 @@ function tot_momentum(bodys::Vector{Vector{Any}})::Tuple{Float64, Float64, Float
   end
 
   return P
+end
+
+
+# calculates the total angular momentum of the system
+function tot_ang_mom(bodys::Vector{Vector{Any}})::Tuple{Float64, Float64, Float64}
+  L = (0.0, 0.0, 0.0)
+  
+  for b in bodys
+    L = L .+ Tuple(cross(collect(b[1]), collect(b[2])) .* b[3])
+  end
+
+  return L
 end
