@@ -1,0 +1,11 @@
+# Euler-Integrator, bei dem die Eingabe überschrieben wird (benutzen wir wahrschienlich nicht):
+function integ_euler!(body, force, dt)
+
+	# Berechne die neuen Orte und Geschwindigkeiten:
+	x1 = body[1] .+ (body[2] .* dt)							# x1 = x + v*dt
+	v1 = body[1] .+ ((force(body) ./ body[3]) .* dt)		# v1 = v + a*dt = v + (f/m)*dt
+
+	# Schreibe neue Werte in body:
+	body[1] = x1
+	body[2] = v1
+end
