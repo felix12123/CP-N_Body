@@ -124,8 +124,8 @@ function integ_rk2(body0, force, dt)
 	v1 = body[2] .+ (a1 .* dt)
 
 	# Berechne Vorhersage nach RK2:
-	xnew = x0 + (dt/2) * mean.(v0, v1)
-	vnew = v0 + (dt/2) * mean.(a0, a1)
+	xnew = x0 .+ (dt/2) .* (v0 .+ v1) ./ 2
+	vnew = v0 .+ (dt/2) .* (a0 .+ a1) ./ 2
 
 	# Schreibe neue Werte in body:
 	body[1] = xnew
@@ -179,8 +179,8 @@ function integ_rk4(body0, force, dt)
 	a3 = (force(body) ./ m)								# Berechne a3 über die Kraft: f/m = a
 
 	# Berechne nun Vorhersage nach RK4:
-	xnew = x0 + (dt/6)*mean.(v0, v1, v2, v3)
-	vnew = v0 + (dt/6)*mean.(a0, a1, a2, a3)
+	xnew = x0 .+ (dt/6) .* (v0 .+ v1 .+ v2 .+ v3) ./ 4
+	vnew = v0 .+ (dt/6) .* (a0 .+ a1 .+ a2 .+ a3) ./ 4
 
 	# Schreibe gemittelte Werte in body rein für das finale Ergebnis:
 	body[1] = xnew
