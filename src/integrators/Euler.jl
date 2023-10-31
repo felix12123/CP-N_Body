@@ -95,14 +95,14 @@ function integ_velocity_verlet(body0, force, dt)
 	# **********************************************************************
 
 	# Velocity-Verlet für variable Zeitschritte (kick-drift-kick-Methode):
-	v1_05 = v0 .+ ((1/2) .* a0 .* dt)			# (1.38)
-	x1 	  = x0 .+ (v1_05 .* dt)					# (1.39)
+	v1_05 = v0 .+ ((1/2) .* a0 .* dt)					# (1.38)
+	x1 	  = x0 .+ (v1_05 .* dt)							# (1.39)
 
 	#	# Schreibe neues x (= x1) in body, um neues a (= a1) zu berechnen.
 	#	# Dieses benötigt man um neues v (= v1) zu berechnen:
 	body[1] = x1
-	a1  = (force(body) ./ m)
-	v1 = v1_05 .+ (1/2 .* a1 .* dt)				# (1.40)
+	a1  	= (force(body) ./ m)
+	v1 		= v1_05 .+ (1/2 .* a1 .* dt)				# (1.40)
 
 	# Schreibe neues v (= v1) in body:
 	body[2] = v1
@@ -130,21 +130,22 @@ function integ_rk2(body0, force, dt)
 	# Speichere x0, v0 und a0:
 	x0 = body[1]
 	v0 = body[2]
-	a0 = (force(body) ./ body[3])
+	m =  body[3]
+	a0 = (force(body) ./ m)
 
 	# -Berechne die benötigten Werte:
-	x1 = body[1] .+ (body[2] .* dt)
+	x1 = x0 .+ (v0 .* dt)
 	
 	# Schreibe neue Werte in body, damit neue Beschleunigung berechnet werden kann:
 	body[1] = x1
 
 	# Weiter in der Berechnung:
-	a1 = (force(body) ./ body[3])
-	v1 = body[2] .+ (a1 .* dt)
+	a1 = (force(body) ./ m)
+	v1 = v0 .+ (a1 .* dt)
 
 	# Berechne Vorhersage nach RK2:
-	xnew = x0 .+ (dt/2) .* (v0 .+ v1) ./ 2
-	vnew = v0 .+ (dt/2) .* (a0 .+ a1) ./ 2
+	xnew = x0 .+ (dt/2) .* (v0 .+ v1)
+	vnew = v0 .+ (dt/2) .* (a0 .+ a1)
 
 	# Schreibe neue Werte in body:
 	body[1] = xnew
@@ -198,8 +199,8 @@ function integ_rk4(body0, force, dt)
 	a3 = (force(body) ./ m)								# Berechne a3 über die Kraft: f/m = a
 
 	# Berechne nun Vorhersage nach RK4:
-	xnew = x0 .+ (dt/6) .* (v0 .+ v1 .+ v2 .+ v3) ./ 4
-	vnew = v0 .+ (dt/6) .* (a0 .+ a1 .+ a2 .+ a3) ./ 4
+	xnew = x0 .+ (dt/6) .* (v0 .+ (2 .* (v1 .+ v2)) .+ v3)
+	vnew = v0 .+ (dt/6) .* (a0 .+ (2 .* (a1 .+ a2)) .+ a3)
 
 	# Schreibe gemittelte Werte in body rein für das finale Ergebnis:
 	body[1] = xnew
