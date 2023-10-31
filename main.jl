@@ -11,7 +11,7 @@ function installed()
 end
 
 # Check if packages are installed, else install them
-Packages = ["CSV", "DataFrames", "Plots", "DataFrames"]
+Packages = ["CSV", "DataFrames", "Plots", "DataFrames", "Statistics", "Test"]
 installed_Packages = keys(installed())
 for Package in Packages
   if !(Package in installed_Packages)
@@ -46,15 +46,18 @@ function simulate_system(bodys::Vector{Vector{Any}}, force::Function, integrand=
   P_n = [P_tot_0]
   L_n = [L_tot_0]
   t_n = [0.0]
-
+  history = []
   # We need to save the previous accelerations of our system, to calculate the dynamic time step
   # prev_accs = undef
   # prev_vels = undef
   # accs = undef
 
+  println("simulation started")
   # Begin the simulation process
-  while t < tot_time
-
+  @time "simulation time: " while t < tot_time
+    if size(t, 1) % 10 == 1
+      append!(history, [deepcopy(bodys)])
+    end
     # calulate time step for current iteration
     if t == 0 | !dyn_dt
       dt = η
@@ -82,17 +85,42 @@ function simulate_system(bodys::Vector{Vector{Any}}, force::Function, integrand=
     append!(L_n, [tot_ang_mom(bodys)])
   end
 
+  println("simulation complete after $(size(t_n, 1)) iterations")
+
   metrik(vec) = collect(vec) .^ 2 |> sum |> sqrt
   P_abs = metrik.(P_n)
   L_abs = metrik.(L_n)
 
-  # display(DataFrame(t=t_n, E=E_n, P=P_n, L=L_n))
-  plot1 = plot(t_n, E_n, yscale=:log10, title="Energy", xlabel="Time", ylabel="Energy", dpi=300)
-  plot2 = plot(t_n, P_abs, yscale=:log10, title="Momentum", xlabel="Time", ylabel="Momentum", dpi=300)
+  function visualise_space(bodys, scope=-1)
+    # display(bodys)
+    x = [b[1][1] for b in bodys]
+    y = [b[1][2] for b in bodys]
+    # z = [b[1][3] for b in bodys] |> ustrip
+    plotsize = (750, 750)
+    if scope==-1
+      plot1 = scatter(x, y, size=plotsize, dpi=150)
+    else
+      plot1 = scatter(x, y, xlim=(scope[1][1], scope[1][2]), ylim=(scope[2][1], scope[2][2]), size=plotsize, dpi=150)
+    end
+    return plot1
+  end
+
+  
+  
+  plot1 = plot(t_n, E_n, yscale=:identity, title="Energy", xlabel="Time", ylabel="Energy", dpi=300)
+  plot2 = plot(t_n, P_abs, yscale=:identity, title="Momentum", xlabel="Time", ylabel="Momentum", dpi=300)
   plot3 = plot(t_n, L_abs, yscale=:identity, title="Anglular Momentum", xlabel="Time", ylabel="Anglular Momentum", dpi=300)
-  plt = plot(plot1, plot2, plot3, layout=(2,2), dpi=300)
+  plt   = plot(plot1, plot2, plot3, layout=(2,2), dpi=300)
   display(plt)
-  # display.([plot1, plot2, plot3])
+  
+  anim2 = @animate for i in eachindex(history)[1:div(end, 50):end]
+    gridsize = 5
+    visualise_space(history[i], ((-gridsize, gridsize), (-gridsize, gridsize)))
+  end
+
+  path = string(@__DIR__) * "\\GIF.gif"
+  println("Saving gif in ", "TestGif")
+  gif1 = gif(anim2, path)
 end
 
 
@@ -103,22 +131,40 @@ function start()
   data3 = parse_data("data\\100_body.csv")
   data4 = parse_data("data\\1000_body.csv")
 
+  center_system!(data1)
+  center_system!(data2)
+  center_system!(data3)
+  center_system!(data4)
+
+  norm_mass!(data1)
+  norm_mass!(data2)
+  norm_mass!(data3)
+  norm_mass!(data4)
+
   function gravity(body, bodys)
     G = 1
     F = (0, 0, 0)
     for b in bodys
-      F = F .+ (G * b[3] * body[3] / sqrt(sum((b[1] .- body[1]) .^ 2))^3) .* (b[1] .- body[2])
-    end 
+      r = norm(b[1] .- body[1])
+      if r > 0.001
+        F = F .- G * b[3] * body[3] / r^3 .* (body[1] .- b[1])
+      else
+
+        F = F .- G * b[3] * body[3] / 0.001^2 .* (body[1] .- b[1]) ./ r
+      end
+        
+    end
     return F
   end
 
-  simulate_system(data1, gravity, integ_euler, 10, 10^-3, dyn_dt=false)
+  # simulate_system(data1, gravity, integ_euler, 25, 0.001, dyn_dt=false)
+  simulate_system(data4, gravity, integ_euler, 5, 0.1, dyn_dt=false)
 
   return nothing
 end
 
 
 if string(@__MODULE__) == "Main"
-  @time "whole progarm duration" start()
+  @time "whole program duration" start()
 end
 
