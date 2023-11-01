@@ -21,3 +21,8 @@ function run_tests()
     @test parse_data("data\\2_body.csv") == [[(1.0, 0.0, 0.0), (0.0, 0.0, 0.0), 1.0], [(0.0, 0.0, 0.0), (0.0, -1.0, 0.0), 1.0]]
   end
 end
+
+
+# if string(@__MODULE__) === "Main"
+#   run_tests()
+# end

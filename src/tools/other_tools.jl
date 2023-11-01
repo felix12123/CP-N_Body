@@ -54,9 +54,17 @@ end
 
 # calculates the total energy of the system
 function tot_energy(bodys::Vector{Vector{Any}})::Float64
+  G = 1
   E = 0
   for b in bodys
-    E += 1/2 * b[3] * sum(b[2] .^ 2)
+    E_vel = 1/2 * b[3] * sum(b[2] .^ 2)
+    E_pot = 0
+    for b1 in bodys
+      if b1 != b
+        E_pot += G * b1[3] * b[3] / sqrt(sum((b1[1] .- b[1]) .^ 2))
+      end
+    end
+    E += E_vel - E_pot
   end
   return E
 end
