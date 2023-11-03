@@ -162,83 +162,122 @@ function evaluate_2body_problem()
   
   # Parameters for each integration method:
   integrators   = [integ_euler, integ_euler_cromer, integ_rk2, integ_rk4]
-  time_scale    = 2pi .* [200, 200, 200, 200] .* 0.25
+  time_scale    = 2pi .* [200, 200, 200, 200] .* 0.2
   stepsize_mult = [1, 1, 1, 1]
   dynamic_step  = [true, true, true, true]
   plotname      = ["2-Body_Euler", "2-Body_Euler-Cromer", "2-Body_RK2", "2-Body_RK4"]
   integ_name    = ["Euler", "Euler-Cromer", "RK2", "RK4"]
-  # containers for Plots
-  plot_E = plot(xlabel="Orbits", title=L"$\log_{10}|\frac{E-E_0}{E_0}|$", dpi=300)
-  plot_j = plot(xlabel="Orbits", title=L"|\vec{j}|", dpi=300)
-  plot_e = plot(xlabel="Orbits", title=L"\log_{10}|\frac{e-e_0}{e_0}|", dpi=300)
-  plot_a = plot(xlabel="Orbits", title=L"\log_{10}|\frac{a_e-a_{e,0}}{a_{e,0}}|", dpi=300)
 
-  for i in integrators |> eachindex
-    bodys = deepcopy(bodys_original) # deepcopy bodys each time, to avoid aliasing
+  stepsizes = [0.5, 0.1, 0.05, 0.01, 0.005, 0.001]
+  for stepsize in stepsizes
+    # containers for Plots
+    plot_E = plot(xlabel="Orbits", title=L"$\log_{10}|\frac{E-E_0}{E_0}|$", dpi=300)
+    plot_j = plot(xlabel="Orbits", title=L"|\vec{j}|", dpi=300)
+    plot_e = plot(xlabel="Orbits", title=L"\log_{10}|\frac{e-e_0}{e_0}|", dpi=300)
+    plot_a = plot(xlabel="Orbits", title=L"\log_{10}|\frac{a_e-a_{e,0}}{a_{e,0}}|", dpi=300)
 
-    println("\nEvaluation for integrator ", plotname[i], " started")
-    t = 0.0
-    t_end = time_scale[i]
-    η = stepsize_mult[i] * 10e-3
-    integrator = integrators[i]
+    for i in integrators |> eachindex
+      bodys = deepcopy(bodys_original) # deepcopy bodys each time, to avoid aliasing
 
-    # containers for the macroscopic data we want to track
-    E_n   = [tot_energy(bodys)[1]]
-    j_n   = [spec_ang_mom(bodys[1])]
-    e_n   = [runge_lenz_vec(bodys[1])]
-    a_e_n = [large_semi_axis(bodys[1])]
-    t_n   = [t]
+      println("\nEvaluation for integrator ", plotname[i], " with stepsize ", stepsize, " started")
+      t = 0.0
+      t_end = time_scale[i]
+      η = stepsize_mult[i] * stepsize
+      integrator = integrators[i]
+
+      # containers for the macroscopic data we want to track
+      E_n   = [tot_energy(bodys)[1]]
+      j_n   = [spec_ang_mom(bodys[1])]
+      e_n   = [runge_lenz_vec(bodys[1])]
+      a_e_n = [large_semi_axis(bodys[1])]
+      t_n   = [t]
 
 
-    progress = -1
+      progress = -1
 
-    while t <= t_end
-      # output progress every 10%
-      if t/t_end > progress + 0.1
-        progress = floor(t/t_end, digits=1)
-        println("Progress: ", round(Int, progress * 100), "%")
+      while t <= t_end
+        # output progress every 10%
+        if t/t_end > progress + 0.1
+          progress = floor(t/t_end, digits=1)
+          println("Progress: ", round(Int, progress * 100), "%")
+        end
+
+        dt = dynamic_step[i] ? time_step(bodys, η) : η # calculate current time step, dependant on curvature of particles
+        t += dt
+        # update each body
+        start_bodys = deepcopy(bodys)
+        for i in eachindex(bodys)
+          f1(body) = gravity(body, start_bodys[vcat(1:i-1, i+1:end)])
+          bodys[i] = integrator(bodys[i], f1, dt)
+        end
+        append!(E_n, [tot_energy(bodys)[1]])
+        append!(j_n, [spec_ang_mom(bodys[1])])
+        append!(e_n, [runge_lenz_vec(bodys[1])])
+        append!(a_e_n, [large_semi_axis(bodys[1])])
+        append!(t_n, [t])
+      end
+      
+      # Plot the makroscopic data:
+      # y1 = E_n
+      # y2 = norm.(j_n)
+      # y3 = norm.(e_n)
+      # y4 = a_e_n
+
+      y1 = log10.(abs.((E_n .- E_n[1]) ./ E_n[1]))
+      y2 = norm.(j_n)
+      y3 = log10.(abs.((norm.(e_n) .- norm.(e_n)[1])/norm.(e_n)[1]))
+      y4 = log10.(abs.((a_e_n .- a_e_n[1])/a_e_n[1]))
+
+      linestyle = :solid
+      if integ_name[i] == "RK4"
+        linestyle = :dashdotdot
       end
 
-      dt = dynamic_step[i] ? time_step(bodys, η) : η # calculate current time step, dependant on curvature of particles
-      t += dt
-      # update each body
-      start_bodys = deepcopy(bodys)
-      for i in eachindex(bodys)
-        f1(body) = gravity(body, start_bodys[vcat(1:i-1, i+1:end)])
-        bodys[i] = integrator(bodys[i], f1, dt)
-      end
-      append!(E_n, [tot_energy(bodys)[1]])
-      append!(j_n, [spec_ang_mom(bodys[1])])
-      append!(e_n, [runge_lenz_vec(bodys[1])])
-      append!(a_e_n, [large_semi_axis(bodys[1])])
-      append!(t_n, [t])
-    end
-    
-    # Plot the makroscopic data:
-    # y1 = E_n
-    # y2 = norm.(j_n)
-    # y3 = norm.(e_n)
-    # y4 = a_e_n
-
-    y1 = log10.(abs.((E_n .- E_n[1]) ./ E_n[1]))
-    y2 = norm.(j_n)
-    y3 = log10.(abs.((norm.(e_n) .- norm.(e_n)[1])/norm.(e_n)[1]))
-    y4 = log10.(abs.((a_e_n .- a_e_n[1])/a_e_n[1]))
-
-    linestyle = :solid
-    if integ_name[i] == "RK4"
-      linestyle = :dashdotdot
+      plot_E = plot!(plot_E, t_n ./ 2pi, y1, label=integ_name[i], linestyle=linestyle)
+      plot_j = plot!(plot_j, t_n ./ 2pi, y2, label="", linestyle=linestyle)
+      plot_e = plot!(plot_e, t_n ./ 2pi, y3, label="", linestyle=linestyle)
+      plot_a = plot!(plot_a, t_n ./ 2pi, y4, label="", linestyle=linestyle)
     end
 
-    plot_E = plot!(plot_E, t_n ./ 2pi, y1, label=integ_name[i], linestyle=linestyle)
-    plot_j = plot!(plot_j, t_n ./ 2pi, y2, label="", linestyle=linestyle)
-    plot_e = plot!(plot_e, t_n ./ 2pi, y3, label="", linestyle=linestyle)
-    plot_a = plot!(plot_a, t_n ./ 2pi, y4, label="", linestyle=linestyle)
+    println("generating Plots...")
+    tot_plot = plot(plot_E, plot_j, plot_e, plot_a, plot_title="stepsize = " *string(stepsize), layout=(2,2), dpi=300, size=(600, 400) .* 1.3)
+    savefig(tot_plot, "media\\total_2b_plot_ss_"*replace(string(stepsize), "."=>"_"))
   end
 
-  println("generating Plots...")
-  tot_plot = plot(plot_E, plot_j, plot_e, plot_a, layout=(2,2), dpi=300, size=(600, 400) .* 1.3)
-  savefig(tot_plot, "media\\total_plot")
+  # Second Part of task 2:
+  velocity_multipliers = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5]
+  η = 0.002
+  t_end = 20
+  
+  for i in eachindex(integrators)
+    println("Evaluation started for integrator: ", integ_name[i])
+    integrator = integrators[i]
+    
+    plot1 = plot(title=L"$\log_{10}|\frac{E-E_0}{E_0}|$ for different velocities")
+    
+    # add data to plot for each velocity
+    for vel_mult in velocity_multipliers
+      println("current velocity multiplier: ", vel_mult)
+      t = 0.0
+      bodys = deepcopy([bodys_original[1], [bodys_original[2][1], bodys_original[2][2] .* vel_mult, bodys_original[2][3]]])
+      E_n   = [tot_energy(bodys)[1]]
+      t_n   = [t]
+
+      while t < t_end
+        t += η
+        start_bodys = deepcopy(bodys)
+        for i in eachindex(bodys)
+          f1(body) = gravity(body, start_bodys[vcat(1:i-1, i+1:end)])
+          bodys[i] = integrator(bodys[i], f1, η)
+        end
+        append!(E_n, [tot_energy(bodys)[1]])
+        append!(t_n, [t])
+      end
+      y1 = log10.(abs.((E_n .- E_n[1]) ./ E_n[1]))
+      plot!(plot1, t_n, y1, label="vel_mult = " * string(vel_mult))
+    end
+    savefig(plot1, "media\\vel_variation_"*integ_name[i])
+  end
 end
 
 function start()
@@ -285,7 +324,7 @@ function start()
   end
 
   # simulate_system(data1, gravity, integ_euler, 25, 0.001, dyn_dt=false)
-  simulate_system(data1, gravity, integ_rk4, 2pi*200, 0.001, dyn_dt=false, frames=250)
+  simulate_system(data2, gravity, integ_rk4, 2pi*15, 0.005, dyn_dt=true, frames=350)
 
   return nothing
 end
