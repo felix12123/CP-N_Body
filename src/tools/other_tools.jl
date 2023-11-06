@@ -53,11 +53,12 @@ function time_step(bodys, dt0)
     for j in eachindex(abs_acc)
       if i != j
         r_ij = bodys[i][1] .- bodys[j][1]
+        abs_r_ij = norm(r_ij)
         v_ij = bodys[i][2] .- bodys[j][2]
         
-        a_i = a_i .+ bodys[j][3] / norm(r_ij)^3 .* r_ij
+        a_i = a_i .+ bodys[j][3] / abs_r_ij^3 .* r_ij
 
-        a_dot_i = a_dot_i .+ bodys[j][3] .* (v_ij ./ norm(r_ij)^3 .- 3/norm(r_ij)^5 * dot(v_ij, r_ij) .* r_ij)
+        a_dot_i = a_dot_i .+ bodys[j][3] .* (v_ij ./ abs_r_ij^3 .- 3/abs_r_ij^5 * dot(v_ij, r_ij) .* r_ij)
       end
     end
     abs_acc[i] = norm(a_i)

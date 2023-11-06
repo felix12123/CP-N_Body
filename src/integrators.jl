@@ -272,37 +272,35 @@ function integ_hermite(body0::Vector, accs::Function, dt::Float64)
 	dt3   = dt^3
 	dt4   = dt^4
 	dt5	  = dt^5
-	a 	  = accs[1]
-	a_dot = accs[2]
+	# a 	  = accs[1]
+	# a_dot = accs[2]
 
 	# Rechnungen zu K1:
 	x0 	   = body[1]																	# Ziehe Anfangswert von x
 	v0 	   = body[2]																	# Ziehe Anfangswert von v
-	a0 	   = a(body)																	# Beschleunigung am Startpunkt
-	a0_dot = a_dot(body)																# Änderung der Beschleunigung am Startpunkt
-
+	a0, a0_dot = accs(body)
+	
 	# Berechne Schritt 1: Prediction von v und x
-	v1_p = v0 .+ (a0 * dt) .+ (0.5 .* a0_dot .* dt2)									# (1.41)
-	x1_p = x0 .+ (v0 * dt) .+ (0.5 .* a0 	 .* dt2) .+ ((1/6) .* a0_dot .* dt3)		# (1.42)
+	v1_p = v0 .+ (a0 .* dt) .+ (0.5 .* a0_dot .* dt2)									# (1.41)
+	x1_p = x0 .+ (v0 .* dt) .+ (0.5 .* a0 	 .* dt2) .+ ((1/6) .* a0_dot .* dt3)		# (1.42)
 	body[1] = x1_p																		# Schreibe predicted x in body, damit neues a/a_dot berechnet werden kann
 	body[2] = v1_p																		# Schreibe predicted v in body, damit neues a/a_dot berechnet werden kann
-
+	
 	# Berechne Schritt 2: Prediction der von a_p und a_dot_p
-	a1_p 	 = a(body)	   																# (1.43)
-	a1_dot_p = a_dot(body) 																# (1.43)
-
+	a1_p, a1_dot_p = accs(body)
+	
 	# Berechne Schritt 3: Berechnung von a_2_dot und a_3_dot:
-	a0_2_dot = -6 .* ((a0 - a1_p) ./ dt2) .- 2 .* (((2*a0_dot) .+ a1_dot_p) ./ dt) 		# (1.46)
-	a0_3_dot = 12 .* ((a0 - a1_p) ./ dt3) .+ 6 .* (((a0_dot)   .+ a1_dot_p) ./ dt2)		# (1.47)
-
+	a0_2_dot = -6 .* ((a0 .- a1_p) ./ dt2) .- 2 .* (((2 .* a0_dot) .+ a1_dot_p) ./ dt) 		# (1.46)
+	a0_3_dot = 12 .* ((a0 .- a1_p) ./ dt3) .+ 6 .* (((a0_dot)   .+ a1_dot_p) ./ dt2)		# (1.47)
+	
 	# Berechne Schritt 4: Correction von v1 und x1:
 	v1_corrected = v1_p .+ ((1/6)  .* a0_2_dot .* dt3) .+ ((1/24)  .* a0_3_dot .* dt4)	# (1.48)
 	x1_corrected = x1_p .+ ((1/24) .* a0_2_dot .* dt4) .+ ((1/120) .* a0_3_dot .* dt5)	# (1.49)
-
+	
 	# Schreibe neue Werte in body:
 	body[1] = x1_corrected
 	body[2] = v1_corrected
-
+	
 	# Gebe Ergebnis-body aus:
 	return body
 end
