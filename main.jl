@@ -36,7 +36,7 @@ run_tests()
 
 # Simulates, how a given system of bodys will develope, if the acceleration "acceleration" actos on the particles. 
 # Creates an animation with "frames" frames, and displays how the energy, momentum and angular momentum developes
-function simulate_system(bodys::Vector{Vector{Any}}, acceleration::Function, integrand=integ_euler, tot_time=50, η=0.01; dyn_dt::Bool=true, frames=100, hermit_function=identity)
+function simulate_system(bodys::Vector{Vector{Any}}, acceleration::Function, integrand=integ_euler, tot_time=50, η=0.01; dyn_dt::Bool=true, frames=100, hermite_function=identity)
   E_tot_0, Ep_tot_0, Ev_tot_0 = tot_energy(bodys)
   P_tot_0 = tot_momentum(bodys)
   L_tot_0 = tot_ang_mom(bodys)
@@ -78,7 +78,7 @@ function simulate_system(bodys::Vector{Vector{Any}}, acceleration::Function, int
 
     # select wich funciton the integrator needs
     if string(integrand) == "integ_hermite" || string(integrand) == "integ_iter_hermite"
-      acceleration = hermit_function
+      acceleration = hermite_function
     end
 
     bodys_copy = deepcopy(bodys)
@@ -103,9 +103,24 @@ function simulate_system(bodys::Vector{Vector{Any}}, acceleration::Function, int
 
   println("simulation complete after $(size(t_n, 1)-1) iterations")
 
-  metrik(vec) = collect(vec) .^ 2 |> sum |> sqrt
   P_abs = norm.(P_n)
   L_abs = norm.(L_n)
+
+
+  # Visualisation ============================================================================
+
+  
+  # Plot of Energy etc:
+  
+  # plot1 = plot(t_n, [E_n, Ep_n, Ev_n], label=["E" "E_pot" "E_vel"], yscale=:identity, title="Energy", xlabel="Time", ylabel="Energy", dpi=300)
+  plot1 = plot(t_n, E_n, label="E", yscale=:identity, title="Energy", xlabel="Time", ylabel="Energy", dpi=300)
+  plot2 = plot(t_n, P_abs, yscale=:identity, title="Momentum", xlabel="Time", ylabel="Momentum", dpi=300)
+  plot3 = plot(t_n, L_abs, yscale=:identity, title="Anglular Momentum", xlabel="Time", ylabel="Anglular Momentum", dpi=300)
+  plt   = plot(plot1, plot2, plot3, layout=(2,2), dpi=300)
+  savefig(plt, "media\\plot")
+  
+
+  # Animation:
 
   function visualise_space(bodys, scope=-1; title="time = $(history_t[i])")
     # display(bodys)
@@ -121,17 +136,8 @@ function simulate_system(bodys::Vector{Vector{Any}}, acceleration::Function, int
     return plot1
   end
 
-  
-  
-  # plot1 = plot(t_n, [E_n, Ep_n, Ev_n], label=["E" "E_pot" "E_vel"], yscale=:identity, title="Energy", xlabel="Time", ylabel="Energy", dpi=300)
-  plot1 = plot(t_n, E_n, label="E", yscale=:identity, title="Energy", xlabel="Time", ylabel="Energy", dpi=300)
-  plot2 = plot(t_n, P_abs, yscale=:identity, title="Momentum", xlabel="Time", ylabel="Momentum", dpi=300)
-  plot3 = plot(t_n, L_abs, yscale=:identity, title="Anglular Momentum", xlabel="Time", ylabel="Anglular Momentum", dpi=300)
-  plt   = plot(plot1, plot2, plot3, layout=(2,2), dpi=300)
-  savefig(plt, "media\\plot")
-  
   anim2 = @animate for i in eachindex(history)
-    gridsize = 5
+    gridsize = 3
     time = history_t[i] |> string
     time = time * "0000000"
     time = time[1:(div(length(time), 10) + 3)]
@@ -161,7 +167,21 @@ function evaluate_2body_problem()
 
     return F
   end
+  function gravity_hermite_acc(body, bodys)
+    a_i = (0, 0, 0)
+    a_dot_i = (0, 0, 0)
+    for j in eachindex(bodys)
+      
+      r_ij = bodys[j][1] .- body[1]
+      abs_r_ij = norm(r_ij)
+      v_ij = bodys[j][2] .- body[2]
+      
+      a_i = a_i .+ bodys[j][3] / abs_r_ij^3 .* r_ij
 
+      a_dot_i = a_dot_i .+ bodys[j][3] .* (v_ij ./ abs_r_ij^3 .- 3/abs_r_ij^5 * dot(v_ij, r_ij) .* r_ij)
+    end
+    return a_i, 1 .* a_dot_i
+  end
 
   path_2body = "data\\2_body.csv"
   bodys_original = parse_data(path_2body)
@@ -169,15 +189,15 @@ function evaluate_2body_problem()
   norm_mass!(bodys_original)
   
   # Parameters for each integration method:
-  integrators   = [integ_euler, integ_euler_cromer, integ_velocity_verlet, integ_rk2, integ_rk4]
-  time_scale    = 2pi .* [200, 200, 200, 200, 200] .* 1
-  stepsize_mult = [1, 1, 1, 1, 1]
-  dynamic_step  = [false, false, false, false, false]
-  plotname      = ["2-Body_Euler", "2-Body_Euler-Cromer", "2-Body_velocity_verlet", "2-Body_RK2", "2-Body_RK4"]
-  integ_name    = ["Euler", "Euler-Cromer", "Velocity-Verlet", "RK2", "RK4"]
+  integrators   = [integ_euler, integ_euler_cromer, integ_velocity_verlet, integ_rk2, integ_rk4, integ_hermite, integ_iter_hermite]
+  time_scale    = 2pi .* 200 .* ones(Float64, size(integrators)) .* 0.05
+  dynamic_step  = repeat([false], size(integrators, 1))
+  plotname      = ["2-Body_Euler", "2-Body_Euler-Cromer", "2-Body_velocity_verlet", "2-Body_RK2", "2-Body_RK4", "2-Body_Hermite", "2-Body_Integ_Hermite"]
+  integ_name    = ["Euler", "Euler-Cromer", "Velocity-Verlet", "RK2", "RK4", "Hermite", "Integ_Hermite"]
 
   stepsizes = [0.5, 0.1, 0.05, 0.01, 0.005, 0.001]
   for stepsize in stepsizes
+    break
     # containers for Plots
     plot_E = plot(xlabel="Orbits", title=L"$\log_{10}|\frac{E-E_0}{E_0}|$", dpi=300)
     plot_j = plot(xlabel="Orbits", title=L"|\vec{j}|", dpi=300)
@@ -190,8 +210,14 @@ function evaluate_2body_problem()
       println("\nEvaluation for integrator ", plotname[i], " with stepsize ", stepsize, " started")
       t = 0.0
       t_end = time_scale[i]
-      η = stepsize_mult[i] * stepsize
+      η = stepsize
       integrator = integrators[i]
+
+      # select wich functions the integrator needs
+      accs = gravity_acc
+      if string(integrator) in ["integ_hermite", "integ_iter_hermite"]
+        accs = gravity_hermite_acc
+      end
 
       # containers for the macroscopic data we want to track
       E_n   = [tot_energy(bodys)[1]]
@@ -258,8 +284,9 @@ function evaluate_2body_problem()
 
   # Second Part of task 2:
   velocity_multipliers = [0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5]
+  colors  =palette([:blue, :red, :green], size(velocity_multipliers, 1))
   η = 0.002
-  t_end = 20
+  t_end = 2#0
   
   for i in eachindex(integrators)
     println("Evaluation started for integrator: ", integ_name[i])
@@ -269,7 +296,6 @@ function evaluate_2body_problem()
     
     # add data to plot for each velocity
     for vel_mult in velocity_multipliers
-      println("current velocity multiplier: ", vel_mult)
       t = 0.0
       bodys = deepcopy([bodys_original[1], [bodys_original[2][1], bodys_original[2][2] .* vel_mult, bodys_original[2][3]]])
       E_n   = [tot_energy(bodys)[1]]
@@ -286,7 +312,7 @@ function evaluate_2body_problem()
         append!(t_n, [t])
       end
       y1 = log10.(abs.((E_n .- E_n[1]) ./ E_n[1]))
-      plot!(plot1, t_n, y1, label="vel_mult = " * string(vel_mult))
+      plot!(plot1, t_n, y1, linecolor=colors[findfirst(velocity_multipliers .== vel_mult)], label="vel_mult = " * string(vel_mult))
     end
     savefig(plot1, "media\\Task2\\vel_variation_"*integ_name[i])
   end
@@ -464,7 +490,7 @@ function start()
   function gravity_acc(body, bodys)
     G = 1
     F = (0, 0, 0)
-    r_min = 0.005
+    r_min = 0.01
     if size(bodys, 1) > 20
       Threads.@threads for b in bodys
         @fastmath r = norm(b[1] .- body[1])
@@ -493,24 +519,22 @@ function start()
       
       r_ij = bodys[j][1] .- body[1]
       abs_r_ij = norm(r_ij)
-      v_ij = body[2] .- bodys[j][2]
+      v_ij = bodys[j][2] .- body[2]
       
       a_i = a_i .+ bodys[j][3] / abs_r_ij^3 .* r_ij
 
       a_dot_i = a_dot_i .+ bodys[j][3] .* (v_ij ./ abs_r_ij^3 .- 3/abs_r_ij^5 * dot(v_ij, r_ij) .* r_ij)
     end
-    # println("force goes from ", body[1], " to ", bodys[1][1], ": ", a_i)
-    return a_i, a_dot_i
+    return a_i, 1 .* a_dot_i
   end
 
   # simulate_system(data1, gravity_acc, integ_euler, 25, 0.001, dyn_dt=false)
-  simulate_system(data2, gravity_acc, integ_rk2, 2pi*2, 0.01, dyn_dt=false, frames=25, hermit_function=gravity_hermite_acc)
+  simulate_system(data1, gravity_acc, integ_rk2, 2pi*40, 0.001, dyn_dt=false, frames=50, hermite_function=gravity_hermite_acc)
 
   return nothing
 end
 
 if string(@__MODULE__) == "Main"
   # start()
-  # evaluate_2body_problem()
   evaluate_100_1000_body_problem()
 end
