@@ -27,23 +27,18 @@ for Package in Packages
 end
 
 
-function fast_sinus()
-  for i in 1:10000000
-    @fastmath(sin(log(i)))
+function count_julia_lines(path::String)::Int
+  if isfile(path)
+    if split(path, ".")[end] == "au3"
+      return open(path) do file
+        lines = size(eachline(file) |> collect, 1)
+        return lines
+      end
+      return 0
+    end
+  elseif isdir(path)
+    return sum(count_julia_lines.(readdir(path, join=true)))
   end
-end
-function sinus()
-  for i in 1:10000000
-    sin(log(i))
-  end
+  return 0
 end
 
-function start()
-  
-  @time "fast" fast_sinus()
-  @time "fast" fast_sinus()
-  @time "not fast" sinus()
-  @time "not fast" sinus()
-
-end
-start()

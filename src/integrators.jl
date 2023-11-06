@@ -334,26 +334,23 @@ function integ_iter_hermite(body0::Vector, accs::Function, dt::Float64)
 
 	# Häufig verwendete Elemente sollten nicht durchweg auf's neue berechnet werden müssen:
 	dt2   = dt^2
-	a 	  = accs[1]
-	a_dot = accs[2]
+	dt3   = dt^3
 	x0 	   = body[1]																						# Ziehe Anfangswert von x
 	v0 	   = body[2]																						# Ziehe Anfangswert von v
-	a0 	   = a(body)																						# Beschleunigung am Startpunkt
-	a0_dot = a_dot(body)																					# Änderung der Beschleunigung am Startpunkt
+	a0, a0_dot = accs(body)																					# Änderung der Beschleunigung am Startpunkt
 
 	# Berechne Schritt 1: Prediction von v und x
-	v1_p = v0 .+ (a0 * dt) .+ (0.5 .* a0_dot .* dt2)														# (1.41)
-	x1_p = x0 .+ (v0 * dt) .+ (0.5 .* a0 	 .* dt2) .+ ((1/6) .* a0_dot .* dt3)							# (1.42)
+	v1_p = v0 .+ (a0 .* dt) .+ (0.5 .* a0_dot .* dt2)														# (1.41)
+	x1_p = x0 .+ (v0 .* dt) .+ (0.5 .* a0 	 .* dt2) .+ ((1/6) .* a0_dot .* dt3)							# (1.42)
 	body[1] = x1_p																							# Schreibe predicted x in body, damit neues a/a_dot berechnet werden kann
 	body[2] = v1_p																							# Schreibe predicted v in body, damit neues a/a_dot berechnet werden kann
 
 	# Berechne Schritt 2: Prediction der von a_p und a_dot_p
-	a1_p 	 = a(body)	   																					# (1.43)
-	a1_dot_p = a_dot(body) 																					# (1.43)
+	a1_p, a1_dot_p = accs(body) 																					# (1.43)
 
 	# Berechne Schritt 3: Correction von v1 und x1:
-	v1_corrected = v0 .+ ((1/2) .* (a1_p 	     + a0) .* dt) .+ ((1/12) .* (a1_dot_p .- a0_dot) .* dt2)	# (1.50)
-	x1_corrected = x0 .+ ((1/2) .* (v1_corrected + v0) .* dt) .+ ((1/12) .* (a1_p 	  .- a0) 	 .* dt2)	# (1.51)
+	v1_corrected = v0 .+ ((1/2) .* (a1_p 	     .+ a0) .* dt) .+ ((1/12) .* (a1_dot_p .- a0_dot) .* dt2)	# (1.50)
+	x1_corrected = x0 .+ ((1/2) .* (v1_corrected .+ v0) .* dt) .+ ((1/12) .* (a1_p 	  .- a0) 	 .* dt2)	# (1.51)
 
 	# Schreibe neue Werte in body:
 	body[1] = x1_corrected
