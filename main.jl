@@ -329,7 +329,7 @@ function evaluate_100_1000_body_problem()
   # integ_name  = ["Euler", "Euler-Cromer", "Velocity-Verlet", "RK2", "RK4", "Hermite", "Iterrierter-Hermite"]
   integ_name    = ["RK2"]
   stepsizes     = [0.5, 0.1, 0.05, 0.01, 0.005, 0.001]
-  steps         = 10
+  steps         = -1
 
   
   times_100      = []
@@ -438,7 +438,7 @@ function evaluate_100_1000_body_problem()
 
   s_sizes   = [0.5, 0.1, 0.05, 0.01, 0.005, 0.001]
   rel_dauer = (times_100 ./ times_1000) .* 100
-  plot(s_sizes, rel_dauer, title=L"$t(N=100)/t(N=1000)$ for 10 steps", xlabel="Stepsizes", ylabel="Rel. CPU time", dpi=300)
+  plot(s_sizes, rel_dauer, title=L"$t(N=100)/t(N=1000)$ for 10 steps", label="", xlabel="Stepsizes", ylabel="Rel. CPU time", dpi=300)
   savefig("media\\Task3\\Zeit.png")
 end
 
