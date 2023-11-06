@@ -329,7 +329,7 @@ function evaluate_100_1000_body_problem()
   # integ_name  = ["Euler", "Euler-Cromer", "Velocity-Verlet", "RK2", "RK4", "Hermite", "Iterrierter-Hermite"]
   integ_name    = ["RK2"]
   stepsizes     = [0.5, 0.1, 0.05, 0.01, 0.005, 0.001]
-  steps         = -1
+  steps         = 10
 
   
   times_100      = []
