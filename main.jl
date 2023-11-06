@@ -11,7 +11,7 @@ function installed()
 end
 
 # Check if packages are installed, else install them
-Packages = ["Profile", "CSV", "Plots", "Statistics", "Test", "LaTeXStrings", "DataFrames"]
+Packages = ["Profile", "CSV", "Plots", "Statistics", "Test", "LaTeXStrings", "DataFrames"] #, "CPUTime"]
 installed_Packages = keys(installed())
 for Package in Packages
   if !(Package in installed_Packages)
@@ -292,6 +292,158 @@ function evaluate_2body_problem()
   end
 end
 
+function evaluate_100_1000_body_problem()
+  
+  # Zunächst Definition einer Funktion für die Beschleunigung basierend auf der Gravitation
+  function gravity_acc(body, bodys)
+    G = 1
+    F = (0, 0, 0)
+    r_min = 0.005
+
+    for b in bodys
+      r = norm(b[1] .- body[1])
+      if r > r_min
+        F = F .- G * b[3] / r^3 .* (body[1] .- b[1])
+      else
+        F = F .- G * b[3] / (r_min^2 * r) .* (body[1] .- b[1])
+      end
+    end
+
+    return F
+  end
+
+  # Paths
+  path_100body = "data\\100_body.csv"
+  # bodys_original = parse_data(path_100body)
+  path_1000body = "data\\1000_body.csv"
+  # bodys_original = parse_data(path_1000body)
+  path_vars = [path_100body, path_1000body]
+  
+  # Definition aller Parameter für die nachfolgende Integration
+  # integrators   = [integ_euler, integ_euler_cromer, integ_velocity_verlet, integ_rk2, integ_rk4, integ_hermite, integ_iter_hermite]
+  integrators   = [integ_rk2]
+  dynamic_step  = [false, false, false, false, false, false, false]
+  # plotname1   = ["100-Body_Euler", "100-Body_Euler-Cromer", "100-Body_velocity_verlet", "100-Body_RK2", "100-Body_RK4", "100-Body_Hermite", "100-Body_Iter_Hermite"]
+  # plotname2   = ["1000-Body_Euler", "1000-Body_Euler-Cromer", "1000-Body_velocity_verlet", "1000-Body_RK2", "1000-Body_RK4", "1000-Body_Hermite", "1000-Body_Iter_Hermite"]
+  A3_Name       = ["1000-Body_RK2", "100-Body_RK2"]
+  # integ_name  = ["Euler", "Euler-Cromer", "Velocity-Verlet", "RK2", "RK4", "Hermite", "Iterrierter-Hermite"]
+  integ_name    = ["RK2"]
+  stepsizes     = [0.5, 0.1, 0.05, 0.01, 0.005, 0.001]
+  steps         = 10
+
+  
+  times_100      = []
+  times_1000     = []
+  
+  for path_var in path_vars
+    
+    # Speicher für den Plot
+    plot_E = plot(xlabel="Steps", title=L"$\log_{10}|\frac{E-E_0}{E_0}|$", dpi=300)
+    
+    bodys_original = parse_data(path_var)
+    ending         = path_var[6:end-4]
+    #println(ending)
+    #println(ending[1:4] == 1000)
+    # Normiere Masse und switche ins Schwerpunktssystem
+    center_system!(bodys_original)
+    norm_mass!(bodys_original)
+
+    plotname=""
+
+    if ending[1:4] == "1000"
+      plotname = A3_Name[1]
+    else
+      plotname = A3_Name[2]
+    end
+
+    for stepsize in stepsizes  
+
+      for i in integrators |> eachindex
+
+        # Startzeipunkt speichrn, um später rechenzeit zu berechnen
+        start_time = time()
+
+        # Deepcopy, damit kein Aliasing aufkommt
+        bodys = deepcopy(bodys_original)
+
+        # Ausgabe allgemeiner Informationen (Integrator, Stepsize, Start [?]) in der Konsole
+        println("\nEvaluation for integrator ", plotname, " with stepsize ", stepsize, " started")
+        t = 0.0
+        t_end = stepsize * steps
+        η = stepsize
+        integrator = integrators[i]
+
+        # Speicher für die Energie
+        E_n   = [tot_energy(bodys)[1]]
+        t_n   = [t]
+
+        # "Fortschrittsanzeige" in der Konsole
+        progress = -1
+        while t <= t_end
+
+          # Fortschritt alle 10% anzeigen
+          if t/t_end > progress + 0.1
+            progress = floor(t/t_end, digits=1)
+            println("Progress: ", round(Int, progress * 100), "%")
+          end
+
+          # Berechne Timestep basierend auf den aktuellen Gegebenheiten
+          dt = dynamic_step[i] ? time_step(bodys, η) : η
+          t += dt
+
+          # Update jeden body
+          start_bodys = deepcopy(bodys)
+          for i in eachindex(bodys)
+            f1(body) = gravity_acc(body, start_bodys[vcat(1:i-1, i+1:end)])
+            bodys[i] = integrator(bodys[i], f1, dt)
+          end
+          append!(E_n, [tot_energy(bodys)[1]])
+          append!(t_n, [t])
+        end
+
+        # Berechne die gewünschte Größe aus Aufgabe 3:
+        y1 = log10.(abs.((E_n .- E_n[1]) ./ E_n[1]))
+
+        # Einstellungen für Plots der jeweiligen Integratoren
+        linestyle = :solid
+        if integ_name[i] == "RK4"
+          linestyle = :dashdotdot
+        end
+        linewidth = :auto
+        if integ_name[i] == "Velocity-Verlet"
+          linewidth = 2.5
+        end
+        end_time = time()
+        println(end_time - start_time, " Birnen")
+
+        if ending[1:4] == "1000"
+          append!(times_1000, (end_time - start_time))
+          println("YA")
+        else
+          append!(times_100, (end_time - start_time))
+          println("NO")
+        end
+
+        # Füge Plots der jeweiligen Integratoren hinzu
+        plot_E = plot!(plot_E, t_n ./ stepsize, y1, label="step = " * string(stepsize), linestyle=linestyle)
+      end
+
+    end
+    # Konsolen-Info
+    println("generating Plots...")
+    tot_plot = plot(plot_E, layout=(2,2), dpi=300, size=(600, 400) .* 1.3)
+    # Speichere Plots
+    savefig(tot_plot, "media\\Task3\\Afg_3_" * ending *".png")
+  end
+
+  s_sizes   = [0.5, 0.1, 0.05, 0.01, 0.005, 0.001]
+  rel_dauer = (times_100 ./ times_1000) .* 100
+  plot(s_sizes, rel_dauer, title=L"$t(N=100)/t(N=1000)$ for 10 steps", xlabel="Stepsizes", ylabel="Rel. CPU time", dpi=300)
+  savefig("media\\Task3\\Zeit.png")
+end
+
+
+
 function start()
   # Read starting parameters from data files
   data1 = parse_data("data\\2_body.csv")
@@ -358,7 +510,7 @@ function start()
 end
 
 if string(@__MODULE__) == "Main"
-  start()
+  # start()
   # evaluate_2body_problem()
+  evaluate_100_1000_body_problem()
 end
-
